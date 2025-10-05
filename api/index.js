@@ -47,6 +47,10 @@ app.use(xss());
 
 // ✅ Static uploads (Vercel par aam taur par alag service se handle hota hai)
 app.use("/uploads", express.static("uploads"));
+// ✅ Welcome Route
+app.get("/", (req, res) => {
+  res.send("Welcome to the Task API! Server is running. 🚀");
+});
 
 // ✅ Routes
 app.use("/api/users", userRoutes);
