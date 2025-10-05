@@ -1,4 +1,3 @@
-// api/index.js
 const express = require("express");
 const dotenv = require("dotenv");
 dotenv.config();
@@ -9,23 +8,21 @@ const xss = require("xss-clean");
 const cookieParser = require("cookie-parser");
 const passport = require("passport");
 
-const connectDB = require("../config/db"); // 👈 Path update kiya
-require("../config/passport"); // 👈 Path update kiya
+const connectDB = require("../config/db");
+require("../config/passport");
 
-const userRoutes = require("../Routes/userRoutes"); // 👈 Path update kiya
-const adminRoutes = require("../Routes/adminRoutes"); // 👈 Path update kiya
+const userRoutes = require("../Routes/userRoutes");
+const adminRoutes = require("../Routes/adminRoutes");
 
 const app = express();
 
-// ✅ Database Connection Middleware
-// Har request se pehle database connection check karega
+// Database Connection Middleware
 app.use(async (req, res, next) => {
   await connectDB();
   next();
 });
 
-// ✅ CORS ko Vercel ke liye configure karein
-// Frontend URL ko environment variable se lein
+// CORS Configuration
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
@@ -34,30 +31,35 @@ app.use(
   })
 );
 
-// ✅ Parsers
+// Parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// ✅ Security middlewares
+// Security Middlewares
 app.use(helmet());
 app.use(passport.initialize());
 app.use(mongoSanitize());
 app.use(xss());
 
-// ✅ Static uploads (Vercel par aam taur par alag service se handle hota hai)
-app.use("/uploads", express.static("uploads"));
-// ✅ Welcome Route
+// ✅ Static uploads aur Cross-Origin Policy ko ek saath joda gaya hai
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  },
+  express.static("uploads")
+);
+
+// Welcome Route
 app.get("/", (req, res) => {
   res.send("Welcome to the Task API! Server is running. 🚀");
 });
 
-// ✅ Routes
+// API Routes
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
 
-// ❗️ app.listen() ko hata diya gaya hai
-// Vercel server ko khud manage karta hai, isliye iski zaroorat nahi.
-
-// Vercel ke liye app ko export karein
+// Export the app for Vercel
 module.exports = app;
