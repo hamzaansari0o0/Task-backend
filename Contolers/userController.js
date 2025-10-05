@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../Models/userModel");
 const bcrypt = require("bcrypt");
+const cloudinary = require("cloudinary").v2; // 👈 CLOUDINARY IMPORT KIYA GAYA
 const {
   signupValidation,
   loginValidation,
@@ -11,6 +12,13 @@ const {
   sendPasswordResetEmail,
 } = require("../services/emailService");
 const { logActivity } = require("../middlewares/activityLogger");
+
+// 👈 CLOUDINARY CONFIGURE KIYA GAYA
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 // Signup
 const signupUser = async (req, res) => {
@@ -23,6 +31,23 @@ const signupUser = async (req, res) => {
     if (existingUser)
       return res.status(400).json({ message: "Email already registered ❌" });
 
+    let profilePictureUrl = null;
+
+    // 👈 CLOUDINARY UPLOAD LOGIC
+    if (req.file) {
+      const result = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: "profile_pics" },
+          (error, result) => {
+            if (error) reject(error);
+            resolve(result);
+          }
+        );
+        uploadStream.end(req.file.buffer);
+      });
+      profilePictureUrl = result.secure_url;
+    }
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -31,7 +56,7 @@ const signupUser = async (req, res) => {
       email,
       password: hashedPassword,
       isVerified: false,
-      profilePicture: req.file ? req.file.path.replace(/\\/g, "/") : null,
+      profilePicture: profilePictureUrl, // 👈 Cloudinary ka URL save hoga
     });
     await newUser.save();
 
@@ -81,19 +106,17 @@ const loginUser = async (req, res) => {
     user.refreshToken = refreshToken;
     await user.save();
 
-    // Access token cookie
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: true,
-      sameSite: "none", // 👈 CHANGE HERE
+      sameSite: "none",
       maxAge: 3 * 60 * 1000,
     });
 
-    // Refresh token cookie
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: true,
-      sameSite: "none", // 👈 CHANGE HERE
+      sameSite: "none",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -130,7 +153,7 @@ const refreshAccessToken = async (req, res) => {
         res.cookie("accessToken", newAccessToken, {
           httpOnly: true,
           secure: true,
-          sameSite: "none", // 👈 CHANGE HERE
+          sameSite: "none",
           maxAge: 3 * 60 * 1000,
         });
 
@@ -148,25 +171,24 @@ const refreshAccessToken = async (req, res) => {
 const logoutUser = async (req, res) => {
   try {
     const refreshToken = req.cookies.refreshToken;
-    if (!refreshToken)
-      return res.status(400).json({ message: "Refresh token required ❌" });
-
-    const user = await User.findOne({ refreshToken });
-    if (user) {
-        user.refreshToken = null;
-        await user.save();
-        await logActivity(req, user._id, "User logged out", user.email);
+    if (refreshToken) {
+        const user = await User.findOne({ refreshToken });
+        if (user) {
+            user.refreshToken = null;
+            await user.save();
+            await logActivity(req, user._id, "User logged out", user.email);
+        }
     }
     
     res.clearCookie("accessToken", {
       httpOnly: true,
       secure: true,
-      sameSite: "none", // 👈 CHANGE HERE
+      sameSite: "none",
     });
     res.clearCookie("refreshToken", {
       httpOnly: true,
       secure: true,
-      sameSite: "none", // 👈 CHANGE HERE
+      sameSite: "none",
     });
 
     res.status(200).json({ message: "Logout successful ✅" });
@@ -207,8 +229,19 @@ const updateUserProfile = async (req, res) => {
       user.password = await bcrypt.hash(req.body.password, salt);
     }
 
+    // 👈 CLOUDINARY UPLOAD LOGIC FOR UPDATE
     if (req.file) {
-      user.profilePicture = req.file.path.replace(/\\/g, "/");
+      const result = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: "profile_pics" },
+          (error, result) => {
+            if (error) reject(error);
+            resolve(result);
+          }
+        );
+        uploadStream.end(req.file.buffer);
+      });
+      user.profilePicture = result.secure_url;
     }
 
     const updatedUser = await user.save();
@@ -244,7 +277,6 @@ const verifyEmail = async (req, res) => {
     await user.save();
     await logActivity(req, user._id, "Verified email", user.email);
     
-    // Redirect to login page after successful verification
     const loginUrl = `${process.env.FRONTEND_URL}/signin?verified=true`;
     res.redirect(loginUrl);
     
