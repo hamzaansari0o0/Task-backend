@@ -3,17 +3,14 @@ const ActivityLog = require("../Models/activityLog");
 const { logActivity } = require("../middlewares/activityLogger");
 
 // Get All Users (Admin only)
-// ✅ Get All Users with Pagination & Search
 const getAllUsers = async (req, res) => {
   try {
-    // Query params
-    const page = parseInt(req.query.page) || 1; // default page = 1
-    const limit = parseInt(req.query.limit) || 10; // default limit = 10
-    const search = req.query.search || ""; // default = empty
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || "";
 
     const skip = (page - 1) * limit;
 
-    // 🔍 Search filter
     const searchFilter = {
       $or: [
         { name: { $regex: search, $options: "i" } },
@@ -21,18 +18,14 @@ const getAllUsers = async (req, res) => {
       ],
     };
 
-    // Total count (for pagination metadata)
     const totalUsers = await User.countDocuments(searchFilter);
 
-    // Users fetch karo
     const users = await User.find(searchFilter)
       .select("-password -refreshToken")
-      .sort({ createdAt: -1 }) // latest users first
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    // 🔹 Log Activity
-    // ✅ Use helper instead of direct ActivityLog.create
     await logActivity(req, req.user.id, "Viewed All Users", req.user.email);
 
     res.status(200).json({

@@ -10,10 +10,8 @@ const {
   sendVerificationEmail,
   sendPasswordResetEmail,
 } = require("../services/emailService");
-
 const { logActivity } = require("../middlewares/activityLogger");
 
-///////////////////////////////
 // Signup
 const signupUser = async (req, res) => {
   const { error } = signupValidation.validate(req.body);
@@ -37,15 +35,11 @@ const signupUser = async (req, res) => {
     });
     await newUser.save();
 
-    // 🔹 Generate verification token
     const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
 
-    // 🔹 Send email
     await sendVerificationEmail(newUser, token);
-
-    // 🔹 Activity Log
     await logActivity(req, newUser._id, "User signed up", newUser.email);
 
     res.status(201).json({
@@ -72,7 +66,6 @@ const loginUser = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found ❌" });
 
-    // ✅ Pehle check karo email verified hai ya nahi
     if (!user.isVerified) {
       return res
         .status(400)
@@ -85,27 +78,25 @@ const loginUser = async (req, res) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    // Refresh token DB me save hoga
     user.refreshToken = refreshToken;
     await user.save();
 
-    // ✅ Access token cookie
+    // Access token cookie
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: true, // production me true rakho
-      sameSite: "strict",
-      maxAge: 3 * 60 * 1000, // 3 min
+      secure: true,
+      sameSite: "none", // 👈 CHANGE HERE
+      maxAge: 3 * 60 * 1000,
     });
 
-    // ✅ Refresh token cookie
+    // Refresh token cookie
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: true,
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      sameSite: "none", // 👈 CHANGE HERE
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    // 🔹 Activity Log
     await logActivity(req, user._id, "User logged in", user.email);
 
     res.status(200).json({
@@ -136,11 +127,10 @@ const refreshAccessToken = async (req, res) => {
 
         const newAccessToken = generateAccessToken(user);
 
-        // ✅ Access token cookie refresh
         res.cookie("accessToken", newAccessToken, {
           httpOnly: true,
           secure: true,
-          sameSite: "strict",
+          sameSite: "none", // 👈 CHANGE HERE
           maxAge: 3 * 60 * 1000,
         });
 
@@ -162,26 +152,22 @@ const logoutUser = async (req, res) => {
       return res.status(400).json({ message: "Refresh token required ❌" });
 
     const user = await User.findOne({ refreshToken });
-    if (!user) return res.status(404).json({ message: "User not found ❌" });
-
-    // DB se refresh token null karo
-    user.refreshToken = null;
-    await user.save();
-
-    // ✅ Cookies clear karo
+    if (user) {
+        user.refreshToken = null;
+        await user.save();
+        await logActivity(req, user._id, "User logged out", user.email);
+    }
+    
     res.clearCookie("accessToken", {
       httpOnly: true,
       secure: true,
-      sameSite: "strict",
+      sameSite: "none", // 👈 CHANGE HERE
     });
     res.clearCookie("refreshToken", {
       httpOnly: true,
       secure: true,
-      sameSite: "strict",
+      sameSite: "none", // 👈 CHANGE HERE
     });
-
-    // 🔹 Activity Log
-    await logActivity(req, user._id, "User logged out", user.email);
 
     res.status(200).json({ message: "Logout successful ✅" });
   } catch (error) {
@@ -197,7 +183,6 @@ const getProfile = async (req, res) => {
     );
     if (!user) return res.status(404).json({ message: "User not found ❌" });
 
-    // 🔹 Activity Log
     await logActivity(req, req.user.id, "Viewed profile", req.user.email);
 
     res.status(200).json({
@@ -215,23 +200,18 @@ const updateUserProfile = async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found ❌" });
 
-    // ✅ Email ko update karne ki permission nahi
     user.name = req.body.name || user.name;
 
-    // ✅ Password update
     if (req.body.password) {
       const salt = await bcrypt.genSalt(10);
       user.password = await bcrypt.hash(req.body.password, salt);
     }
 
-    // ✅ Profile picture update
     if (req.file) {
-      user.profilePicture = req.file.path.replace(/\\/g, "/"); // 👈 yahan new image set ho jayegi
+      user.profilePicture = req.file.path.replace(/\\/g, "/");
     }
 
     const updatedUser = await user.save();
-
-    // 🔹 Activity Log
     await logActivity(req, user._id, "Updated profile", user.email);
 
     res.json({
@@ -239,9 +219,9 @@ const updateUserProfile = async (req, res) => {
       user: {
         id: updatedUser._id,
         name: updatedUser.name,
-        email: updatedUser.email, // email same rahega
+        email: updatedUser.email,
         role: updatedUser.role,
-        profilePicture: updatedUser.profilePicture, // 👈 return bhi kar do
+        profilePicture: updatedUser.profilePicture,
       },
     });
   } catch (error) {
@@ -253,29 +233,28 @@ const updateUserProfile = async (req, res) => {
 const verifyEmail = async (req, res) => {
   try {
     const { token } = req.params;
-
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
     const user = await User.findById(decoded.id);
     if (!user) return res.status(400).json({ message: "Invalid token ❌" });
-
     if (user.isVerified) {
       return res.status(400).json({ message: "User already verified ✅" });
     }
 
     user.isVerified = true;
     await user.save();
-
-    // 🔹 Activity Log
     await logActivity(req, user._id, "Verified email", user.email);
-
-    res.status(200).json({ message: "Email verified successfully 🎉" });
+    
+    // Redirect to login page after successful verification
+    const loginUrl = `${process.env.FRONTEND_URL}/signin?verified=true`;
+    res.redirect(loginUrl);
+    
   } catch (error) {
-    res.status(400).json({ message: "Invalid or expired token ❌" });
+     const errorUrl = `${process.env.FRONTEND_URL}/signin?error=verification_failed`;
+     res.redirect(errorUrl);
   }
 };
 
-// 🔹 Forgot Password
+// Forgot Password
 const forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
@@ -287,7 +266,6 @@ const forgotPassword = async (req, res) => {
     });
 
     await sendPasswordResetEmail(user, token);
-
     await logActivity(req, user._id, "Requested password reset", user.email);
 
     res.status(200).json({ message: "Password reset link sent 📩" });
@@ -298,14 +276,13 @@ const forgotPassword = async (req, res) => {
   }
 };
 
-// 🔹 Reset Password
+// Reset Password
 const resetPassword = async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
     const user = await User.findById(decoded.id);
     if (!user) return res.status(404).json({ message: "User not found ❌" });
 
@@ -314,7 +291,6 @@ const resetPassword = async (req, res) => {
 
     user.password = hashedPassword;
     await user.save();
-
     await logActivity(req, user._id, "Reset password", user.email);
 
     res.status(200).json({ message: "Password reset successful 🎉" });
@@ -334,5 +310,5 @@ module.exports = {
   verifyEmail,
   forgotPassword,
   resetPassword,
-  refreshAccessToken, // 👈 Added here
+  refreshAccessToken,
 };
