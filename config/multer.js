@@ -26,15 +26,14 @@
 
 // module.exports = multer({ storage, fileFilter });
 ///////////////////////////
-
-
 // config/multer.js (Updated)
 const multer = require("multer");
 
-// Storage ko memory me rakho
+// File ko server par save karne ke bajaye memory mein rakho
 const storage = multer.memoryStorage(); 
 
 const fileFilter = (req, file, cb) => {
+  // Sirf image files ko ijazat do
   if (file.mimetype.startsWith("image")) {
     cb(null, true);
   } else {

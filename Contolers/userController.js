@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../Models/userModel");
 const bcrypt = require("bcrypt");
-const cloudinary = require("cloudinary").v2; // 👈 CLOUDINARY IMPORT KIYA GAYA
+const cloudinary = require("cloudinary").v2; // ✅ Correct
 const {
   signupValidation,
   loginValidation,
@@ -13,7 +13,7 @@ const {
 } = require("../services/emailService");
 const { logActivity } = require("../middlewares/activityLogger");
 
-// 👈 CLOUDINARY CONFIGURE KIYA GAYA
+// ✅ Correct Cloudinary Configuration
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -33,7 +33,7 @@ const signupUser = async (req, res) => {
 
     let profilePictureUrl = null;
 
-    // 👈 CLOUDINARY UPLOAD LOGIC
+    // ✅ Correct Cloudinary Upload Logic
     if (req.file) {
       const result = await new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
@@ -56,7 +56,7 @@ const signupUser = async (req, res) => {
       email,
       password: hashedPassword,
       isVerified: false,
-      profilePicture: profilePictureUrl, // 👈 Cloudinary ka URL save hoga
+      profilePicture: profilePictureUrl,
     });
     await newUser.save();
 
@@ -229,7 +229,7 @@ const updateUserProfile = async (req, res) => {
       user.password = await bcrypt.hash(req.body.password, salt);
     }
 
-    // 👈 CLOUDINARY UPLOAD LOGIC FOR UPDATE
+    // ✅ Correct Cloudinary Upload Logic for Update
     if (req.file) {
       const result = await new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
