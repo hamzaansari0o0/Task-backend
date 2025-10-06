@@ -13,7 +13,7 @@ require("../config/passport");
 
 const userRoutes = require("../Routes/userRoutes");
 const adminRoutes = require("../Routes/adminRoutes");
-
+const taskRoutes = require("./Routes/taskRoutes");
 const app = express();
 
 // Database Connection Middleware
@@ -60,6 +60,7 @@ app.get("/", (req, res) => {
 // API Routes
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/tasks", taskRoutes);
 
 // Export the app for Vercel
 module.exports = app;
