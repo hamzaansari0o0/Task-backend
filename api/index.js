@@ -13,7 +13,7 @@ require("../config/passport");
 
 const userRoutes = require("../Routes/userRoutes");
 const adminRoutes = require("../Routes/adminRoutes");
-const taskRoutes = require("./Routes/taskRoutes");
+const taskRoutes = require("../Routes/taskRoutes");
 const app = express();
 
 // Database Connection Middleware
