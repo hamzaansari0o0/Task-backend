@@ -25,7 +25,10 @@ app.use(async (req, res, next) => {
 // CORS Configuration
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: [
+      process.env.FRONTEND_URL,
+      "http://localhost:5173"
+    ], // 👈 CHANGE HERE
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
   })
@@ -42,7 +45,7 @@ app.use(passport.initialize());
 app.use(mongoSanitize());
 app.use(xss());
 
-// ✅ Static uploads aur Cross-Origin Policy ko ek saath joda gaya hai
+// Static uploads aur Cross-Origin Policy
 app.use(
   "/uploads",
   (req, res, next) => {
