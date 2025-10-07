@@ -1,6 +1,10 @@
+// backend/api/index.js
+
 const express = require("express");
 const dotenv = require("dotenv");
 dotenv.config();
+require('../config/cloudinary'); // ✅ Cloudinary config ko server start par load karein
+
 const helmet = require("helmet");
 const cors = require("cors");
 const mongoSanitize = require("express-mongo-sanitize");
@@ -26,9 +30,10 @@ app.use(async (req, res, next) => {
 app.use(
   cors({
     origin: [
-      process.env.FRONTEND_URL,
-      "http://localhost:5173"
-    ], // 👈 CHANGE HERE
+      process.env.FRONTEND_URL, // ✅ Apne Vercel frontend URL ke liye
+      "http://localhost:5173",  // ✅ Local development ke liye
+      // "https://your-frontend-project.vercel.app" // Aap yahan direct URL bhi daal sakte hain
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
   })
@@ -44,16 +49,6 @@ app.use(helmet());
 app.use(passport.initialize());
 app.use(mongoSanitize());
 app.use(xss());
-
-// Static uploads aur Cross-Origin Policy
-app.use(
-  "/uploads",
-  (req, res, next) => {
-    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-    next();
-  },
-  express.static("uploads")
-);
 
 // Welcome Route
 app.get("/", (req, res) => {

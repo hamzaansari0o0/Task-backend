@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../Models/userModel");
 const bcrypt = require("bcrypt");
-const cloudinary = require("cloudinary").v2; // ✅ Correct
+const cloudinary = require("../config/cloudinary"); // ✅ Configured Cloudinary ko import karein
 const {
   signupValidation,
   loginValidation,
@@ -13,12 +13,7 @@ const {
 } = require("../services/emailService");
 const { logActivity } = require("../middlewares/activityLogger");
 
-// ✅ Correct Cloudinary Configuration
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+
 
 // Signup
 const signupUser = async (req, res) => {
