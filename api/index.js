@@ -59,6 +59,32 @@ app.get("/", (req, res) => {
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/tasks", taskRoutes);
+// ✅ Naya server start karne ka logic (Debugging logs ke saath)
+const PORT = process.env.PORT || 5000;
+
+const startServer = async () => {
+  try {
+    console.log("1. Starting server..."); // Debugging Log 1
+    
+    // Pehle database se connect karein
+    await connectDB();
+    
+    console.log("2. Database connected successfully."); // Debugging Log 2
+
+    // Agar local par hai to hi server start karega
+    if (require.main === module) {
+      app.listen(PORT, () => {
+        console.log(`3. 🚀 Server is running locally on http://localhost:${PORT}`); // Debugging Log 3
+      });
+    }
+  } catch (error) {
+    console.error("❌ Failed to start server:", error.message); // Error Log
+  }
+};
+
+// Server ko start karein
+startServer();
+
 
 // Export the app for Vercel
 module.exports = app;
