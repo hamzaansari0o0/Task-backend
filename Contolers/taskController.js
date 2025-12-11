@@ -1,72 +1,72 @@
 // backend/Contolers/taskController.js
 
 const Task = require("../Models/taskModel");
-const cloudinary = require("../config/cloudinary"); // ✅ Configured Cloudinary ko import karein
+const cloudinary = require("../config/cloudinary");
 
-// Baaki functions (createTask, getTasks, etc.) waise hi rahenge...
-
-// Naya Task Banane ka Logic
+// createTask, getTasks, updateTask, and deleteTask are already correct and need no changes.
 const createTask = async (req, res) => {
-  try {
-    const { title, description, deadline } = req.body;
-    const newTask = new Task({
-      title,
-      description,
-      deadline,
-      user: req.user.id,
-    });
-    const savedTask = await newTask.save();
-    res.status(201).json(savedTask);
-  } catch (error) {
-    res.status(500).json({ message: "Failed to create task", error: error.message });
-  }
+    try {
+        const { title, description, deadline } = req.body;
+        const newTask = new Task({ title, description, deadline, user: req.user.id });
+        const savedTask = await newTask.save();
+        res.status(201).json(savedTask);
+    } catch (error) {
+        res.status(500).json({ message: "Failed to create task", error: error.message });
+    }
 };
 
-// User ke Saare Tasks Lane ka Logic
 const getTasks = async (req, res) => {
-  try {
-    const tasks = await Task.find({ user: req.user.id }).sort({ createdAt: -1 });
-    res.status(200).json(tasks);
-  } catch (error) {
-    res.status(500).json({ message: "Failed to fetch tasks", error: error.message });
-  }
+    try {
+        const tasks = await Task.find({ user: req.user.id }).sort({ createdAt: -1 });
+        res.status(200).json(tasks);
+    } catch (error) {
+        res.status(500).json({ message: "Failed to fetch tasks", error: error.message });
+    }
 };
 
-// Task ko Update Karne ka Logic
 const updateTask = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { title, description, deadline, status } = req.body;
-    const task = await Task.findOne({ _id: id, user: req.user.id });
-    if (!task) {
-      return res.status(404).json({ message: "Task not found or you're not authorized" });
-    }
-    task.title = title || task.title;
-    task.description = description || task.description;
-    task.deadline = deadline || task.deadline;
-    task.status = status || task.status;
-    const updatedTask = await task.save();
-    res.status(200).json(updatedTask);
-  } catch (error) {
-    res.status(500).json({ message: "Failed to update task", error: error.message });
-  }
+    try {
+        const { id } = req.params;
+        const { title, description, deadline, removeFile } = req.body;
+        const task = await Task.findOne({ _id: id, user: req.user.id });
+        if (!task) {
+          return res.status(404).json({ message: "Task not found or you're not authorized" });
+        }
+        if (removeFile && task.filePublicId) {
+          await cloudinary.uploader.destroy(task.filePublicId, { resource_type: "raw" });
+          task.fileUrl = null;
+          task.filePublicId = null;
+          task.originalFilename = null;
+          task.status = "Pending";
+        }
+        task.title = title ?? task.title;
+        task.description = description ?? task.description;
+        task.deadline = deadline ?? task.deadline;
+        const updatedTask = await task.save();
+        res.status(200).json(updatedTask);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to update task", error: error.message });
+      }
 };
 
-// Task ko Delete Karne ka Logic
 const deleteTask = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const task = await Task.findOneAndDelete({ _id: id, user: req.user.id });
-    if (!task) {
-      return res.status(404).json({ message: "Task not found or you're not authorized" });
-    }
-    res.status(200).json({ message: "Task deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ message: "Failed to delete task", error: error.message });
-  }
+    try {
+        const { id } = req.params;
+        const task = await Task.findOne({ _id: id, user: req.user.id });
+        if (!task) {
+          return res.status(404).json({ message: "Task not found or you're not authorized" });
+        }
+        if (task.filePublicId) {
+          await cloudinary.uploader.destroy(task.filePublicId, { resource_type: "raw" });
+        }
+        await Task.findByIdAndDelete(id);
+        res.status(200).json({ message: "Task and associated file deleted successfully" });
+      } catch (error) {
+        res.status(500).json({ message: "Failed to delete task", error: error.message });
+      }
 };
 
-// ✅ Naya Function: Task File Upload Karne Ka Logic
+// Task File Upload Karne Ka Logic (✅ SIMPLIFIED)
 const uploadTaskFile = async (req, res) => {
   try {
     if (!req.file) {
@@ -81,7 +81,10 @@ const uploadTaskFile = async (req, res) => {
         return res.status(400).json({ message: "Deadline has passed. You cannot upload now." });
     }
 
-    // File ko Cloudinary par stream karein
+    if (task.filePublicId) {
+      await cloudinary.uploader.destroy(task.filePublicId, { resource_type: "raw" });
+    }
+
     const result = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         { folder: "task_files", resource_type: "raw" },
@@ -93,10 +96,12 @@ const uploadTaskFile = async (req, res) => {
       uploadStream.end(req.file.buffer);
     });
 
-    // Task ko database mein update karein
+    // ✅✅✅ FINAL FIX: Only save the original, clean URL. No modifications.
     task.fileUrl = result.secure_url;
     task.filePublicId = result.public_id;
     task.status = "Complete";
+    task.originalFilename = req.file.originalname;
+    
     const updatedTask = await task.save();
 
     res.status(200).json({

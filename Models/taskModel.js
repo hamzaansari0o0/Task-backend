@@ -59,11 +59,16 @@ const taskSchema = new mongoose.Schema(
       type: Date,
     },
     // ✅ File ka URL aur Public ID save karne ke liye
-    fileUrl: {
+  fileUrl: {
       type: String,
       default: null,
     },
     filePublicId: {
+      type: String,
+      default: null,
+    },
+    // ✅ YEH NAYI FIELD ADD KAREIN
+    originalFilename: {
       type: String,
       default: null,
     },
@@ -79,3 +84,4 @@ const taskSchema = new mongoose.Schema(
 const Task = mongoose.model("Task", taskSchema);
 
 module.exports = Task;
+

@@ -6,6 +6,9 @@ const transporter = require("../config/nodeMailer");
 const sendVerificationEmail = async (user, token) => {
   // ✅ Backend URL ab environment variable se aayega
   const url = `${process.env.BACKEND_URL}/api/users/verify/${token}`;
+  console.log("BACKEND_URL =", process.env.BACKEND_URL);
+console.log("FRONTEND_URL =", process.env.FRONTEND_URL);
+
 
   await transporter.sendMail({
     from: `"MyApp" <${process.env.EMAIL_USER}>`,

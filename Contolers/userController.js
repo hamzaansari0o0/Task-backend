@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../Models/userModel");
 const bcrypt = require("bcrypt");
-const cloudinary = require("../config/cloudinary"); // ✅ Configured Cloudinary ko import karein
+const cloudinary = require("../config/cloudinary");
 const {
   signupValidation,
   loginValidation,
@@ -13,7 +13,8 @@ const {
 } = require("../services/emailService");
 const { logActivity } = require("../middlewares/activityLogger");
 
-
+// Helper to check environment
+const isProduction = process.env.NODE_ENV === "production";
 
 // Signup
 const signupUser = async (req, res) => {
@@ -28,7 +29,6 @@ const signupUser = async (req, res) => {
 
     let profilePictureUrl = null;
 
-    // ✅ Correct Cloudinary Upload Logic
     if (req.file) {
       const result = await new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
@@ -101,17 +101,18 @@ const loginUser = async (req, res) => {
     user.refreshToken = refreshToken;
     await user.save();
 
+    // ✅ FIX: Dynamic Cookie Settings for Localhost vs Production
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      secure: isProduction, // Local par FALSE, Live par TRUE
+      sameSite: isProduction ? "none" : "lax", // Local par LAX, Live par NONE
       maxAge: 3 * 60 * 1000,
     });
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -145,10 +146,11 @@ const refreshAccessToken = async (req, res) => {
 
         const newAccessToken = generateAccessToken(user);
 
+        // ✅ FIX: Dynamic Cookie Settings
         res.cookie("accessToken", newAccessToken, {
           httpOnly: true,
-          secure: true,
-          sameSite: "none",
+          secure: isProduction,
+          sameSite: isProduction ? "none" : "lax",
           maxAge: 3 * 60 * 1000,
         });
 
@@ -167,23 +169,24 @@ const logoutUser = async (req, res) => {
   try {
     const refreshToken = req.cookies.refreshToken;
     if (refreshToken) {
-        const user = await User.findOne({ refreshToken });
-        if (user) {
-            user.refreshToken = null;
-            await user.save();
-            await logActivity(req, user._id, "User logged out", user.email);
-        }
+      const user = await User.findOne({ refreshToken });
+      if (user) {
+        user.refreshToken = null;
+        await user.save();
+        await logActivity(req, user._id, "User logged out", user.email);
+      }
     }
-    
+
+    // ✅ FIX: Clear Cookie needs same options
     res.clearCookie("accessToken", {
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
     });
     res.clearCookie("refreshToken", {
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
     });
 
     res.status(200).json({ message: "Logout successful ✅" });
@@ -224,7 +227,6 @@ const updateUserProfile = async (req, res) => {
       user.password = await bcrypt.hash(req.body.password, salt);
     }
 
-    // ✅ Correct Cloudinary Upload Logic for Update
     if (req.file) {
       const result = await new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
@@ -271,13 +273,12 @@ const verifyEmail = async (req, res) => {
     user.isVerified = true;
     await user.save();
     await logActivity(req, user._id, "Verified email", user.email);
-    
+
     const loginUrl = `${process.env.FRONTEND_URL}/signin?verified=true`;
     res.redirect(loginUrl);
-    
   } catch (error) {
-     const errorUrl = `${process.env.FRONTEND_URL}/signin?error=verification_failed`;
-     res.redirect(errorUrl);
+    const errorUrl = `${process.env.FRONTEND_URL}/signin?error=verification_failed`;
+    res.redirect(errorUrl);
   }
 };
 
